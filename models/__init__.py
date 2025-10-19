@@ -1,3 +1,3 @@
-from .models import Room, Guest, Reservation
+from .models import Base, Room, Guest, Reservation, SystemLog
 
-__all__ = ['Room', 'Guest', 'Reservation']
+__all__ = ['Base', 'Room', 'Guest', 'Reservation', 'SystemLog']

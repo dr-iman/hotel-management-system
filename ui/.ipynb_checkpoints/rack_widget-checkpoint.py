@@ -239,6 +239,8 @@ class RackWidget(QWidget):
     def load_rack_data(self):
         """بارگذاری داده‌های رک"""
         try:
+            print("🔍 شروع بارگذاری رک...")
+            
             # پاک کردن ویجت‌های قبلی
             self.cleanup_previous_widgets()
             
@@ -277,15 +279,12 @@ class RackWidget(QWidget):
             
             layout.addWidget(scroll_area)
             
+            print(f"✅ بارگذاری رک کامل شد")
+            
         except Exception as e:
-            print(f"خطا در بارگذاری رک: {e}")
+            print(f"❌ خطا در بارگذاری رک: {e}")
             import traceback
             traceback.print_exc()
-            
-            error_label = QLabel(f"خطا در بارگذاری داده‌ها: {str(e)}")
-            error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            error_label.setStyleSheet("color: red; font-weight: bold; padding: 20px;")
-            self.layout().addWidget(error_label)
     
     def cleanup_previous_widgets(self):
         """پاک کردن ویجت‌های قبلی از حافظه"""
@@ -426,7 +425,10 @@ class RackWidget(QWidget):
     
     def get_cell_data(self, room_id, jalali_date):
         """دریافت اطلاعات رزرو برای یک اتاق در تاریخ مشخص"""
+        session = None
         try:
+            print(f"🔍 بررسی اتاق {room_id} در تاریخ {jalali_date}")
+            
             gregorian_date = jalali_date.togregorian()
             
             session = self.reservation_manager.Session()
@@ -443,9 +445,12 @@ class RackWidget(QWidget):
                 Reservation.status.in_(['confirmed', 'checked_in'])
             ).all()
             
+            print(f"📊 تعداد رزروهای پیدا شده برای اتاق {room_id}: {len(reservations)}")
+            
             if reservations:
                 # اگر چندین رزرو در یک روز وجود دارد
                 if len(reservations) > 1:
+                    print(f"⚠️ چندین رزرو برای اتاق {room_id} در تاریخ {jalali_date}")
                     return {
                         'multiple_reservations': True,
                         'reservations': [
@@ -464,6 +469,8 @@ class RackWidget(QWidget):
                     reservation, guest = reservations[0]
                     nights = (reservation.check_out - reservation.check_in).days
                     
+                    print(f"✅ رزرو پیدا شد: {guest.first_name} {guest.last_name} - {nights} شب")
+                    
                     return {
                         'guest_name': f"{guest.first_name} {guest.last_name}",
                         'nights': nights,
@@ -474,12 +481,13 @@ class RackWidget(QWidget):
                     }
                     
         except Exception as e:
-            print(f"خطا در دریافت داده سلول برای اتاق {room_id} در تاریخ {jalali_date}: {e}")
+            print(f"❌ خطا در دریافت داده سلول برای اتاق {room_id} در تاریخ {jalali_date}: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
         finally:
-            if 'session' in locals():
-                session.close()
-        
-        return None
+            if session:
+                session.close()  # ✅ اطمینان از بسته شدن session
     
     def previous_month(self):
         current_index = self.month_combo.currentIndex()

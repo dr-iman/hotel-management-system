@@ -3,44 +3,17 @@ import os
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QFont
 
-def init_database():
-    """تابع مستقیم برای راه‌اندازی پایگاه داده"""
+def create_sample_data(engine):
+    """ایجاد داده‌های نمونه فقط برای اولین بار"""
     try:
-        print("🔧 در حال راه‌اندازی پایگاه داده...")
-        
-        # اضافه کردن مسیرها به sys.path
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        sys.path.append(current_dir)
-        sys.path.append(os.path.join(current_dir, 'models'))
-        
-        from models.models import Base, Room, Guest, Reservation
-        from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
+        from models.models import Room, Guest, Reservation
         from datetime import datetime, timedelta
         import random
-
-        # ایجاد دایرکتوری database اگر وجود ندارد
-        db_dir = os.path.join(current_dir, 'database')
-        os.makedirs(db_dir, exist_ok=True)
-        
-        db_path = os.path.join(db_dir, 'hotel.db')
-        db_url = f"sqlite:///{db_path}"
-        
-        print(f"📁 ایجاد پایگاه داده در: {db_path}")
-        
-        engine = create_engine(db_url)
-        
-        # بررسی وجود پایگاه داده
-        if os.path.exists(db_path):
-            print("♻️ پایگاه داده موجود است، در حال به روزرسانی...")
-            Base.metadata.drop_all(engine)
-        
-        Base.metadata.create_all(engine)
         
         Session = sessionmaker(bind=engine)
         session = Session()
         
-        # ایجاد اتاق‌ها (126 اتاق)
         print("🏨 در حال ایجاد اتاق‌ها...")
         room_types = [
             {'type': 'سینگل', 'price': 80, 'capacity': 1, 'max_guests': 1},
@@ -49,7 +22,6 @@ def init_database():
             {'type': 'سوئیت', 'price': 200, 'capacity': 4, 'max_guests': 4},
             {'type': 'دیلوکس', 'price': 180, 'capacity': 3, 'max_guests': 3}
         ]
-        room_prices = {'Single': 80, 'Double': 120, 'Twin': 130, 'Suite': 200, 'Deluxe': 180}
         
         rooms = []
         room_id = 1
@@ -63,7 +35,7 @@ def init_database():
                     room_type=room_config['type'],
                     floor=floor,
                     price_per_night=room_config['price'],
-                    capacity=room_config['capacity'],  # اضافه کردن ظرفیت
+                    capacity=room_config['capacity'],
                     max_guests=room_config['max_guests'],
                     amenities="TV, WiFi, Air Conditioning"
                 )
@@ -111,9 +83,10 @@ def init_database():
         for i in range(100):
             room_id = random.choice(room_ids)
             guest_id = random.choice(guest_ids)
+            room = session.query(Room).filter(Room.id == room_id).first()
             
             # تاریخ‌های تصادفی برای رزرو - بیشتر در دو ماه آینده
-            days_from_now = random.randint(0, 60)  # از امروز تا 60 روز آینده
+            days_from_now = random.randint(0, 60)
             stay_duration = random.randint(1, 7)
             
             check_in = today + timedelta(days=days_from_now)
@@ -123,9 +96,8 @@ def init_database():
             has_same_day_checkout = random.random() < 0.2
             
             if has_same_day_checkout:
-                # ایجاد رزرو دوم در همان روز
                 second_guest_id = random.choice([gid for gid in guest_ids if gid != guest_id])
-                second_check_in = check_out.replace(hour=14, minute=0)  # ساعت 2 بعدازظهر
+                second_check_in = check_out.replace(hour=14, minute=0)
                 second_check_out = second_check_in + timedelta(days=random.randint(1, 3))
                 
                 second_reservation = Reservation(
@@ -170,11 +142,89 @@ def init_database():
         session.commit()
         session.close()
         
-        print("✅ پایگاه داده با موفقیت ایجاد و با داده‌های نمونه پر شد!")
+        print("✅ داده‌های نمونه با موفقیت ایجاد شد!")
         print("📊 آمار ایجاد شده:")
         print(f"   - تعداد اتاق‌ها: {len(rooms)}")
         print(f"   - تعداد مهمانان: {len(guests)}")
         print(f"   - تعداد رزرواسیون‌ها: {len(reservations)}")
+        
+    except Exception as e:
+        print(f"❌ خطا در ایجاد داده‌های نمونه: {e}")
+        import traceback
+        traceback.print_exc()
+
+def test_database_persistence():
+    """تست ماندگاری داده‌ها در دیتابیس"""
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(current_dir, 'database', 'hotel.db')
+        
+        if os.path.exists(db_path):
+            print(f"📊 تست ماندگاری دیتابیس...")
+            
+            from sqlalchemy import create_engine
+            from sqlalchemy.orm import sessionmaker
+            from models.models import Reservation, Guest, Room
+            
+            db_url = f"sqlite:///{db_path}"
+            engine = create_engine(db_url)
+            Session = sessionmaker(bind=engine)
+            session = Session()
+            
+            # شمارش رکوردها
+            reservations_count = session.query(Reservation).count()
+            guests_count = session.query(Guest).count()
+            rooms_count = session.query(Room).count()
+            
+            session.close()
+            
+            print(f"📈 آمار دیتابیس:")
+            print(f"   - تعداد رزروها: {reservations_count}")
+            print(f"   - تعداد مهمانان: {guests_count}") 
+            print(f"   - تعداد اتاق‌ها: {rooms_count}")
+            
+        else:
+            print("❌ دیتابیس وجود ندارد")
+            
+    except Exception as e:
+        print(f"❌ خطا در تست ماندگاری: {e}")
+
+def init_database():
+    """تابع مستقیم برای راه‌اندازی پایگاه داده"""
+    try:
+        print("🔧 در حال راه‌اندازی پایگاه داده...")
+        
+        # اضافه کردن مسیرها به sys.path
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.append(current_dir)
+        sys.path.append(os.path.join(current_dir, 'models'))
+        
+        from models.models import Base, Room, Guest, Reservation
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+
+        # ایجاد دایرکتوری database اگر وجود ندارد
+        db_dir = os.path.join(current_dir, 'database')
+        os.makedirs(db_dir, exist_ok=True)
+        
+        db_path = os.path.join(db_dir, 'hotel.db')
+        db_url = f"sqlite:///{db_path}"
+        
+        print(f"📁 مسیر پایگاه داده: {db_path}")
+        
+        engine = create_engine(db_url)
+        
+        # ✅ فقط اگر دیتابیس وجود ندارد، ایجاد داده‌های نمونه
+        if not os.path.exists(db_path):
+            print("🆕 پایگاه داده وجود ندارد، در حال ایجاد...")
+            Base.metadata.create_all(engine)
+            
+            # ایجاد داده‌های نمونه فقط برای اولین بار
+            create_sample_data(engine)
+        else:
+            print("✅ پایگاه داده موجود است")
+            # فقط جداول را ایجاد کن اگر وجود ندارند (بدون پاک کردن داده‌های موجود)
+            Base.metadata.create_all(engine)
         
         return True
         
@@ -244,6 +294,9 @@ if __name__ == "__main__":
     # راه‌اندازی پایگاه داده
     if init_database():
         print("\n" + "=" * 50)
+        # تست ماندگاری داده‌ها
+        test_database_persistence()
+        print("=" * 50)
         main()
     else:
         print("❌ برنامه به دلیل خطا متوقف شد.")

@@ -20,6 +20,7 @@ import jdatetime
 from rack_widget import RackWidget
 from ui.guests_tab import GuestsTab
 from ui.reports_tab import ReportsTab
+from ui.settings_tab import SettingsTab
 
 class JalaliDateEdit(QDateEdit):
     """ویجت ویرایش تاریخ شمسی"""
@@ -28,15 +29,229 @@ class JalaliDateEdit(QDateEdit):
         self.setCalendarPopup(True)
         self.setDisplayFormat("yyyy/MM/dd")
         
+        # تنظیم minimum و maximum date برای جلوگیری از نمایش سال 1131
+        from PyQt6.QtCore import QDate
+        min_date = QDate(1300, 1, 1)  # سال 1300 شمسی
+        max_date = QDate(1500, 12, 29)  # سال 1500 شمسی
+        self.setDateRange(min_date, max_date)
+        
+        # تنظیم تاریخ امروز به شمسی
+        today_jalali = jdatetime.date.today()
+        self.setJalaliDate(today_jalali)
+        
     def setJalaliDate(self, jalali_date):
         """تنظیم تاریخ شمسی"""
-        gregorian_date = jalali_date.togregorian()
-        self.setDate(gregorian_date)
+        from PyQt6.QtCore import QDate
+        # تبدیل مستقیم تاریخ شمسی به QDate
+        qdate = QDate(jalali_date.year, jalali_date.month, jalali_date.day)
+        self.setDate(qdate)
     
     def getJalaliDate(self):
         """دریافت تاریخ شمسی"""
-        gregorian_date = self.date().toPyDate()
-        return jdatetime.date.fromgregorian(date=gregorian_date)
+        qdate = self.date()
+        # تبدیل QDate به تاریخ شمسی
+        return jdatetime.date(qdate.year(), qdate.month(), qdate.day())
+
+class EditReservationDialog(QDialog):
+    def __init__(self, reservation_manager, reservation_id, parent=None):
+        super().__init__(parent)
+        self.reservation_manager = reservation_manager
+        self.reservation_id = reservation_id
+        self.setWindowTitle("ویرایش رزرو")
+        self.setModal(True)
+        self.setMinimumWidth(600)
+        self.setup_ui()
+        self.load_reservation_data()
+    
+    def setup_ui(self):
+        layout = QVBoxLayout()
+        
+        # فیلدهای فرم
+        form_layout = QFormLayout()
+        
+        self.room_number = QLineEdit()
+        self.room_number.setReadOnly(True)
+        
+        # فیلدهای قابل ویرایش مهمان
+        self.first_name = QLineEdit()
+        self.last_name = QLineEdit()
+        self.phone = QLineEdit()
+        self.email = QLineEdit()
+        
+        self.adults_spin = QSpinBox()
+        self.adults_spin.setRange(1, 10)
+        
+        self.children_spin = QSpinBox()
+        self.children_spin.setRange(0, 10)
+        
+        self.nights_spin = QSpinBox()
+        self.nights_spin.setRange(1, 30)
+        self.nights_spin.valueChanged.connect(self.on_nights_changed)
+        
+        self.package_combo = QComboBox()
+        self.package_combo.addItems(["فول برد", "اسکان + صبحانه", "فقط اسکان"])
+        
+        self.status_combo = QComboBox()
+        self.status_combo.addItems(["confirmed", "checked_in", "checked_out", "cancelled"])
+        
+        self.guest_type_combo = QComboBox()
+        self.guest_type_combo.addItems(["حضوری", "آژانس", "رزرو", "سایت", "اینستاگرام"])
+        
+        # تاریخ‌های شمسی - قابل ویرایش
+        self.checkin_date = JalaliDateEdit()
+        self.checkin_date.dateChanged.connect(self.on_checkin_changed)
+        
+        self.checkout_date = JalaliDateEdit()
+        
+        form_layout.addRow("شماره اتاق:", self.room_number)
+        form_layout.addRow("نام:", self.first_name)
+        form_layout.addRow("نام خانوادگی:", self.last_name)
+        form_layout.addRow("تلفن:", self.phone)
+        form_layout.addRow("ایمیل:", self.email)
+        form_layout.addRow("تعداد بزرگسال:", self.adults_spin)
+        form_layout.addRow("تعداد کودک:", self.children_spin)
+        form_layout.addRow("تعداد روزهای اقامت:", self.nights_spin)
+        form_layout.addRow("نوع پکیج:", self.package_combo)
+        form_layout.addRow("وضعیت:", self.status_combo)
+        form_layout.addRow("نوع مهمان:", self.guest_type_combo)
+        form_layout.addRow("تاریخ ورود:", self.checkin_date)
+        form_layout.addRow("تاریخ خروج:", self.checkout_date)
+        
+        layout.addLayout(form_layout)
+        
+        # دکمه‌ها
+        button_layout = QHBoxLayout()
+        self.update_btn = QPushButton("بروزرسانی رزرو")
+        self.update_btn.clicked.connect(self.update_reservation)
+        
+        cancel_btn = QPushButton("انصراف")
+        cancel_btn.clicked.connect(self.reject)
+        
+        button_layout.addWidget(self.update_btn)
+        button_layout.addWidget(cancel_btn)
+        
+        layout.addLayout(button_layout)
+        
+        self.setLayout(layout)
+        self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    
+    def load_reservation_data(self):
+        """بارگذاری داده‌های رزرو برای ویرایش"""
+        try:
+            reservation = self.reservation_manager.get_reservation_by_id(self.reservation_id)
+            if not reservation:
+                QMessageBox.warning(self, "خطا", "رزرو یافت نشد")
+                self.reject()
+                return
+            
+            session = self.reservation_manager.Session()
+            
+            # دریافت اطلاعات اتاق
+            room = session.query(Room).filter(Room.id == reservation.room_id).first()
+            guest = session.query(Guest).filter(Guest.id == reservation.guest_id).first()
+            
+            if not guest:
+                QMessageBox.warning(self, "خطا", "مهمان یافت نشد")
+                self.reject()
+                return
+            
+            # پر کردن فرم
+            self.room_number.setText(room.room_number if room else "نامشخص")
+            self.first_name.setText(guest.first_name)
+            self.last_name.setText(guest.last_name)
+            self.phone.setText(guest.phone or "")
+            self.email.setText(guest.email or "")
+            self.adults_spin.setValue(reservation.adults)
+            self.children_spin.setValue(reservation.children)
+            
+            # محاسبه تعداد روزهای اقامت
+            nights = (reservation.check_out - reservation.check_in).days
+            self.nights_spin.setValue(nights)
+            
+            self.package_combo.setCurrentText(reservation.package_type)
+            self.status_combo.setCurrentText(reservation.status)
+            self.guest_type_combo.setCurrentText(getattr(reservation, 'guest_type', 'حضوری'))
+            
+            # تنظیم تاریخ‌های شمسی
+            checkin_jalali = jdatetime.date.fromgregorian(date=reservation.check_in.date())
+            checkout_jalali = jdatetime.date.fromgregorian(date=reservation.check_out.date())
+            
+            self.checkin_date.setJalaliDate(checkin_jalali)
+            self.checkout_date.setJalaliDate(checkout_jalali)
+            
+            # ذخیره ID مهمان برای بروزرسانی
+            self.guest_id = guest.id
+            
+        except Exception as e:
+            QMessageBox.critical(self, "خطا", f"خطا در بارگذاری داده‌ها: {str(e)}")
+            self.reject()
+        finally:
+            if 'session' in locals():
+                session.close()
+    
+    def on_nights_changed(self):
+        """هنگام تغییر تعداد روزهای اقامت"""
+        self.update_checkout_date()
+    
+    def on_checkin_changed(self):
+        """هنگام تغییر تاریخ ورود"""
+        self.update_checkout_date()
+    
+    def update_checkout_date(self):
+        """بروزرسانی تاریخ خروج"""
+        checkin_jalali = self.checkin_date.getJalaliDate()
+        nights = self.nights_spin.value()
+        checkout_jalali = checkin_jalali + jdatetime.timedelta(days=nights)
+        self.checkout_date.setJalaliDate(checkout_jalali)
+    
+    def update_reservation(self):
+        """بروزرسانی رزرو و اطلاعات مهمان"""
+        try:
+            session = self.reservation_manager.Session()
+            
+            # بروزرسانی اطلاعات مهمان
+            guest = session.query(Guest).filter(Guest.id == self.guest_id).first()
+            if guest:
+                guest.first_name = self.first_name.text()
+                guest.last_name = self.last_name.text()
+                guest.phone = self.phone.text()
+                guest.email = self.email.text()
+            
+            # داده‌های بروزرسانی رزرو
+            update_data = {
+                'adults': self.adults_spin.value(),
+                'children': self.children_spin.value(),
+                'package_type': self.package_combo.currentText(),
+                'status': self.status_combo.currentText(),
+                'guest_type': self.guest_type_combo.currentText(),
+                'check_in': datetime.combine(
+                    self.checkin_date.getJalaliDate().togregorian(), 
+                    datetime.min.time()
+                ),
+                'check_out': datetime.combine(
+                    self.checkout_date.getJalaliDate().togregorian(), 
+                    datetime.min.time()
+                )
+            }
+            
+            session.commit()
+            session.close()
+            
+            # استفاده از متد update_reservation برای ثبت لاگ
+            success, message = self.reservation_manager.update_reservation(
+                self.reservation_id, 
+                update_data, 
+                changed_by="اپراتور"
+            )
+            
+            if success:
+                QMessageBox.information(self, "موفق", message)
+                self.accept()
+            else:
+                QMessageBox.warning(self, "خطا", message)
+                
+        except Exception as e:
+            QMessageBox.critical(self, "خطا", f"خطا در بروزرسانی: {str(e)}")
 
 class ReservationDialog(QDialog):
     def __init__(self, reservation_manager, selected_room=None, selected_date=None, parent=None):
@@ -90,8 +305,6 @@ class ReservationDialog(QDialog):
         
         # تاریخ‌های شمسی
         self.checkin_date = JalaliDateEdit()
-        today_jalali = jdatetime.date.today()
-        self.checkin_date.setJalaliDate(today_jalali)
         self.checkin_date.dateChanged.connect(self.on_checkin_changed)
         
         self.checkout_date = JalaliDateEdit()
@@ -235,7 +448,7 @@ class ReservationDialog(QDialog):
                 session.close()
     
     def submit_reservation(self):
-        """ثبت رزرو جدید"""
+        """ثبت رزرو جدید با استفاده از reservation_manager"""
         try:
             if self.suggested_rooms_list.currentItem() is None:
                 QMessageBox.warning(self, "خطا", "لطفاً یک اتاق از لیست انتخاب کنید")
@@ -246,20 +459,7 @@ class ReservationDialog(QDialog):
                 QMessageBox.warning(self, "خطا", "اتاق انتخاب شده معتبر نیست")
                 return
             
-            # ایجاد مهمان جدید
-            session = self.reservation_manager.Session()
-            
-            guest = Guest(
-                first_name=self.first_name.text(),
-                last_name=self.last_name.text(),
-                phone=self.phone.text(),
-                email=self.email.text(),
-                nationality="ایرانی"
-            )
-            session.add(guest)
-            session.commit()
-            
-            # ایجاد رزرو
+            # آماده‌سازی داده‌ها
             check_in = datetime.combine(
                 self.checkin_date.getJalaliDate().togregorian(), 
                 datetime.min.time()
@@ -272,27 +472,38 @@ class ReservationDialog(QDialog):
             stay_duration = (check_out - check_in).days
             total_amount = room_data['price'] * stay_duration
             
-            reservation = Reservation(
-                room_id=room_data['id'],
-                guest_id=guest.id,
-                check_in=check_in,
-                check_out=check_out,
-                status='confirmed',
-                adults=self.adults_spin.value(),
-                children=self.children_spin.value(),
-                total_amount=total_amount,
-                paid_amount=0,
-                package_type=self.package_combo.currentText(),
-                guest_type=self.guest_type_combo.currentText()
+            reservation_data = {
+                'room_id': room_data['id'],
+                'check_in': check_in,
+                'check_out': check_out,
+                'status': 'confirmed',
+                'adults': self.adults_spin.value(),
+                'children': self.children_spin.value(),
+                'total_amount': total_amount,
+                'paid_amount': 0,
+                'package_type': self.package_combo.currentText(),
+                'guest_type': self.guest_type_combo.currentText()
+            }
+            
+            guest_data = {
+                'first_name': self.first_name.text(),
+                'last_name': self.last_name.text(),
+                'phone': self.phone.text(),
+                'email': self.email.text(),
+                'nationality': 'ایرانی'
+            }
+            
+            # استفاده از reservation_manager برای ثبت رزرو
+            success, message, reservation_id = self.reservation_manager.create_reservation(
+                reservation_data, guest_data, "اپراتور"
             )
             
-            session.add(reservation)
-            session.commit()
-            session.close()
-            
-            QMessageBox.information(self, "موفق", "رزرو با موفقیت ثبت شد!")
-            self.accept()
-            
+            if success:
+                QMessageBox.information(self, "موفق", message)
+                self.accept()
+            else:
+                QMessageBox.critical(self, "خطا", message)
+                
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"خطا در ثبت رزرو: {str(e)}")
 
@@ -342,8 +553,9 @@ class MainWindow(QMainWindow):
         self.reports_tab = ReportsTab(self.reservation_manager)
         tabs.addTab(self.reports_tab, "📊 گزارشات")
         
-        # تب تنظیمات
-        tabs.addTab(QWidget(), "⚙️ تنظیمات")
+        # تب تنظیمات - اضافه کردن تب جدید
+        self.settings_tab = SettingsTab(self.reservation_manager)
+        tabs.addTab(self.settings_tab, "⚙️ تنظیمات و لاگ")
         
         layout.addWidget(tabs)
     
@@ -398,10 +610,9 @@ class MainWindow(QMainWindow):
         return header_frame
     
     def update_time(self):
-        current_time = JalaliDate.now().strftime("%Y/%m/%d %H:%M:%S")
+        current_time = jdatetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
         self.time_label.setText(f"📅 {current_time}")
     
-
     def show_new_reservation_dialog(self, room_number=None, selected_date=None):
         """نمایش دیالوگ ثبت رزرو جدید"""
         dialog = ReservationDialog(self.reservation_manager, room_number, selected_date, self)
@@ -409,6 +620,13 @@ class MainWindow(QMainWindow):
             # تاخیر در بروزرسانی رک برای جلوگیری از conflict
             from PyQt6.QtCore import QTimer
             QTimer.singleShot(100, self.delayed_refresh_rack)
+    
+    def show_edit_reservation_dialog(self, reservation_id):
+        """نمایش دیالوگ ویرایش رزرو"""
+        dialog = EditReservationDialog(self.reservation_manager, reservation_id, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # بروزرسانی رک
+            self.delayed_refresh_rack()
     
     def delayed_refresh_rack(self):
         """بروزرسانی رک با تاخیر"""
@@ -420,4 +638,44 @@ class MainWindow(QMainWindow):
     
     def on_rack_cell_clicked(self, room_number, jalali_date):
         """هنگام کلیک روی سلول در رک"""
-        self.show_new_reservation_dialog(room_number, jalali_date)
+        # ابتدا رزروهای موجود را بررسی کن
+        reservation = self.find_reservation_for_cell(room_number, jalali_date)
+        
+        if reservation:
+            # اگر رزرو وجود دارد، ویرایش را نشان بده
+            self.show_edit_reservation_dialog(reservation.id)
+        else:
+            # اگر رزروی نیست، رزرو جدید ایجاد کن
+            self.show_new_reservation_dialog(room_number, jalali_date)
+    
+    def find_reservation_for_cell(self, room_number, jalali_date):
+        """پیدا کردن رزرو برای اتاق و تاریخ مشخص"""
+        session = self.reservation_manager.Session()
+        try:
+            # پیدا کردن اتاق بر اساس شماره
+            room = session.query(Room).filter(Room.room_number == room_number).first()
+            if not room:
+                return None
+            
+            # تبدیل تاریخ شمسی به میلادی
+            gregorian_date = jalali_date.togregorian()
+            
+            # پیدا کردن رزرو
+            from sqlalchemy import and_
+            
+            reservation = session.query(Reservation).filter(
+                and_(
+                    Reservation.room_id == room.id,
+                    Reservation.check_in <= gregorian_date,
+                    Reservation.check_out > gregorian_date,
+                    Reservation.status.in_(['confirmed', 'checked_in'])
+                )
+            ).first()
+            
+            return reservation
+            
+        except Exception as e:
+            print(f"خطا در پیدا کردن رزرو: {e}")
+            return None
+        finally:
+            session.close()
