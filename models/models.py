@@ -44,6 +44,9 @@ class Reservation(Base):
     guest_id = Column(Integer, nullable=False)
     check_in = Column(DateTime, nullable=False)
     check_out = Column(DateTime, nullable=False)
+    check_in_time = Column(String(10), default="14:00")  # زمان check-in
+    check_out_time = Column(String(10), default="12:00")  # زمان check-out
+    is_half_charge = Column(Boolean, default=False)  # حالت نیم شارژ
     status = Column(String(20), nullable=False)
     adults = Column(Integer, default=1)
     children = Column(Integer, default=0)

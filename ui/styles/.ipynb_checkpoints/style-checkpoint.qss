@@ -1,75 +1,258 @@
-/* استایل اصلی برنامه */
-QMainWindow {
-    background-color: #f5f6fa;
+/* style.qss - تم روشن */
+* {
+    font-family: "B Titr", Tahoma;
 }
 
+QMainWindow {
+    background-color: #f8f9fa;
+}
+
+/* هدر اصلی */
+QFrame[objectName="header_frame"] {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #2c3e50, stop:1 #3498db);
+    border-radius: 10px;
+    margin: 5px;
+}
+
+/* تب‌ها */
 QTabWidget::pane {
-    border: 1px solid #bdc3c7;
-    border-radius: 4px;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
     background-color: white;
+    margin-top: 5px;
 }
 
 QTabBar::tab {
-    background-color: #ecf0f1;
-    border: 1px solid #bdc3c7;
+    background-color: #e9ecef;
+    border: 1px solid #dee2e6;
     border-bottom: none;
-    padding: 8px 16px;
+    padding: 12px 20px;
     margin-right: 2px;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    font-family: "B Titr", Tahoma;
+    font-size: 12px;
+    font-weight: bold;
+    color: #495057;
 }
 
 QTabBar::tab:selected {
-    background-color: #3498db;
-    color: white;
+    background-color: #ffffff;
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
 }
 
 QTabBar::tab:hover:!selected {
     background-color: #d6dbdf;
+    color: #2c3e50;
 }
 
-QTableWidget {
-    gridline-color: #bdc3c7;
-    selection-background-color: #3498db;
-}
-
-QTableWidget::item {
-    padding: 8px;
-    border: 1px solid #ecf0f1;
-}
-
-QHeaderView::section {
-    background-color: #34495e;
-    color: white;
-    padding: 8px;
-    border: 1px solid #2c3e50;
-    font-weight: bold;
-}
-
+/* دکمه‌ها */
 QPushButton {
-    background-color: #3498db;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #3498db, stop:1 #2980b9);
     color: white;
     border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: "B Titr", Tahoma;
+    font-size: 11px;
     font-weight: bold;
+    min-height: 20px;
 }
 
 QPushButton:hover {
-    background-color: #2980b9;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #2980b9, stop:1 #21618c);
 }
 
 QPushButton:pressed {
-    background-color: #21618c;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #21618c, stop:1 #1b4f72);
 }
 
-QComboBox {
-    padding: 6px;
-    border: 1px solid #bdc3c7;
-    border-radius: 4px;
+/* دکمه ثبت رزرو جدید - ویژه */
+QPushButton[objectName="new_reservation_btn"] {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #27ae60, stop:1 #219a52);
+    font-size: 13px;
+    padding: 12px 25px;
+    border: 2px solid #2ecc71;
+}
+
+QPushButton[objectName="new_reservation_btn"]:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #219a52, stop:1 #1e8449);
+    border: 2px solid #27ae60;
+}
+
+/* جدول‌ها */
+QTableWidget {
+    gridline-color: #dee2e6;
+    selection-background-color: #3498db;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
     background-color: white;
+    alternate-background-color: #f8f9fa;
+}
+
+QTableWidget::item {
+    padding: 10px;
+    border-bottom: 1px solid #dee2e6;
+    font-family: "B Titr", Tahoma;
+    font-size: 10px;
+}
+
+QTableWidget::item:selected {
+    background-color: #3498db;
+    color: white;
+}
+
+QHeaderView::section {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #34495e, stop:1 #2c3e50);
+    color: white;
+    padding: 12px;
+    border: none;
+    border-right: 1px solid #5d6d7e;
+    font-family: "B Titr", Tahoma;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+/* فیلدهای ورودی */
+QLineEdit, QComboBox, QSpinBox, QDateEdit {
+    padding: 10px;
+    border: 2px solid #bdc3c7;
+    border-radius: 6px;
+    background-color: white;
+    font-family: "B Titr", Tahoma;
+    font-size: 11px;
+    selection-background-color: #3498db;
+}
+
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDateEdit:focus {
+    border: 2px solid #3498db;
+    background-color: #f8f9fa;
 }
 
 QComboBox::drop-down {
     border: none;
+    width: 30px;
+}
+
+QComboBox::down-arrow {
+    image: none;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid #2c3e50;
+    width: 0px;
+    height: 0px;
+}
+
+/* کارت‌های آمار */
+QFrame[objectName^="stat_card"] {
+    background-color: white;
+    border: 2px solid;
+    border-radius: 10px;
+    padding: 15px;
+    margin: 5px;
+}
+
+/* اسکرول بار */
+QScrollBar:vertical {
+    border: none;
+    background: #ecf0f1;
+    width: 12px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:vertical {
+    background: #bdc3c7;
+    border-radius: 6px;
+    min-height: 20px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #95a5a6;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+}
+
+/* گروه‌بندی */
+QGroupBox {
+    font-family: "B Titr", Tahoma;
+    font-size: 12px;
+    font-weight: bold;
+    color: #2c3e50;
+    border: 2px solid #bdc3c7;
+    border-radius: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top center;
+    padding: 0 10px;
+    background-color: #ecf0f1;
+    border-radius: 4px;
+}
+
+/* لیست */
+QListWidget {
+    border: 2px solid #bdc3c7;
+    border-radius: 6px;
+    background-color: white;
+    font-family: "B Titr", Tahoma;
+    font-size: 11px;
+}
+
+QListWidget::item {
+    padding: 10px;
+    border-bottom: 1px solid #ecf0f1;
+}
+
+QListWidget::item:selected {
+    background-color: #3498db;
+    color: white;
+    border-radius: 4px;
+}
+
+/* پیشرفت بار */
+QProgressBar {
+    border: 2px solid #bdc3c7;
+    border-radius: 6px;
+    background-color: #ecf0f1;
+    text-align: center;
+    color: #2c3e50;
+    font-family: "B Titr", Tahoma;
+}
+
+QProgressBar::chunk {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #3498db, stop:1 #2980b9);
+    border-radius: 4px;
+}
+
+/* لیبل‌ها */
+QLabel {
+    font-family: "B Titr", Tahoma;
+    color: #2c3e50;
+}
+
+QLabel[objectName="title_label"] {
+    font-size: 16px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+QLabel[objectName="time_label"] {
+    font-size: 12px;
+    color: white;
+    font-weight: bold;
 }

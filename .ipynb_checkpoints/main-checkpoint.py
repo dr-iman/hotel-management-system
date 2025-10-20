@@ -1,7 +1,8 @@
 import sys
 import os
-from PyQt6.QtWidgets import QApplication
-from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtGui import QFont, QFontDatabase
+from PyQt6.QtCore import QTimer
 
 def create_sample_data(engine):
     """ایجاد داده‌های نمونه فقط برای اولین بار"""
@@ -234,70 +235,186 @@ def init_database():
         traceback.print_exc()
         return False
 
+class ApplicationController:
+    """کنترلر اصلی برنامه برای مدیریت preloader و main window"""
+    
+    def __init__(self, app):
+        self.app = app
+        self.main_window = None
+        
+    def show_preloader(self):
+        """نمایش preloader"""
+        try:
+            from preloader import PreloaderWindow
+            self.preloader = PreloaderWindow()
+            self.preloader.finished.connect(self.on_preloader_finished)
+            self.preloader.show()
+            print("✅ Preloader نمایش داده شد")
+        except Exception as e:
+            print(f"❌ خطا در نمایش preloader: {e}")
+            # اگر preloader مشکل داشت، مستقیماً main window را نشان بده
+            self.show_main_window()
+    
+    def on_preloader_finished(self):
+        """هنگام اتمام preloader"""
+        print("🎯 Preloader به اتمام رسید، در حال نمایش پنجره اصلی...")
+        self.show_main_window()
+        
+    def show_main_window(self):
+        """نمایش پنجره اصلی بعد از اتمام preloader"""
+        print("🚀 راه‌اندازی برنامه اصلی...")
+        
+        try:
+            # بستن preloader اگر باز است
+            if hasattr(self, 'preloader') and self.preloader:
+                self.preloader.close()
+                self.preloader = None
+            
+            # اضافه کردن مسیرها به sys.path
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            sys.path.append(current_dir)
+            sys.path.append(os.path.join(current_dir, 'models'))
+            sys.path.append(os.path.join(current_dir, 'ui'))
+            sys.path.append(os.path.join(current_dir, 'utils'))
+            
+            # import و ایجاد پنجره اصلی
+            from ui.main_window import MainWindow
+            self.main_window = MainWindow()
+            
+            # نمایش پنجره
+            self.main_window.show()
+            
+            # اگر پنجره maximized نشد، آن را maximize کن
+            if not self.main_window.isMaximized():
+                self.main_window.showMaximized()
+                
+            print("✅ برنامه اصلی نمایش داده شد")
+            
+        except Exception as e:
+            print(f"❌ خطا در ایجاد پنجره اصلی: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # نمایش پیام خطا به کاربر
+            QMessageBox.critical(
+                None, 
+                "خطای سیستمی", 
+                f"خطا در راه‌اندازی برنامه:\n{str(e)}\n\nلطفاً از صحت نصب پکیج‌ها اطمینان حاصل کنید."
+            )
+
+def load_fonts():
+    """بارگذاری فونت‌های فارسی"""
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        font_path = os.path.join(current_dir, 'assets', 'fonts', 'B Titr.ttf')
+        
+        if os.path.exists(font_path):
+            font_id = QFontDatabase.addApplicationFont(font_path)
+            if font_id != -1:
+                font_families = QFontDatabase.applicationFontFamilies(font_id)
+                if font_families:
+                    print(f"✅ فونت B Titr بارگذاری شد: {font_families[0]}")
+                    return True
+                else:
+                    print("⚠️ فونت B Titr بارگذاری شد اما فونت‌فمیلی یافت نشد")
+            else:
+                print("❌ خطا در بارگذاری فونت B Titr")
+        else:
+            print(f"⚠️ فایل فونت یافت نشد: {font_path}")
+            
+    except Exception as e:
+        print(f"⚠️ خطا در بارگذاری فونت: {e}")
+    
+    return False
+
+def load_styles(app):
+    """بارگذاری استایل‌های برنامه"""
+    try:
+        from theme_manager import ThemeManager
+        theme_manager = ThemeManager()
+        success = theme_manager.load_theme(app)
+        
+        if success:
+            print(f"🎨 تم {theme_manager.current_theme} بارگذاری شد")
+        else:
+            print("⚠️ خطا در بارگذاری استایل‌ها")
+            
+    except Exception as e:
+        print(f"⚠️ خطا در بارگذاری استایل‌ها: {e}")
+
 def main():
     """تابع اصلی اجرای برنامه"""
-    try:
-        print("🚀 راه‌اندازی برنامه...")
-        
-        # ایجاد برنامه
-        app = QApplication(sys.argv)
-        
-        # بارگذاری استایل‌ها
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        style_path = os.path.join(current_dir, 'ui', 'styles', 'style.qss')
-        if os.path.exists(style_path):
-            try:
-                with open(style_path, 'r', encoding='utf-8') as f:
-                    app.setStyleSheet(f.read())
-                print("🎨 استایل‌ها بارگذاری شد")
-            except Exception as e:
-                print(f"⚠️ خطا در بارگذاری استایل: {e}")
-        else:
-            print("⚠️ فایل استایل یافت نشد")
-        
-        # تنظیم فونت برای پشتیبانی از فارسی
-        font = QFont("Tahoma", 9)
-        app.setFont(font)
-        
-        # اضافه کردن مسیرها به sys.path
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        sys.path.append(current_dir)
-        sys.path.append(os.path.join(current_dir, 'models'))
-        sys.path.append(os.path.join(current_dir, 'ui'))
-        sys.path.append(os.path.join(current_dir, 'utils'))
-        
-        print("📁 مسیرها به sys.path اضافه شد")
-        
-        # import پنجره اصلی
-        from ui.main_window import MainWindow
-        
-        # ایجاد و نمایش پنجره اصلی
-        print("🖥️ در حال ایجاد پنجره اصلی...")
-        window = MainWindow()
-        window.show()
-        print("✅ برنامه با موفقیت راه‌اندازی شد")
-        
-        # اجرای برنامه
-        sys.exit(app.exec())
-        
-    except Exception as e:
-        print(f"❌ خطا در اجرای برنامه: {e}")
-        import traceback
-        traceback.print_exc()
-        input("برای خروج Enter را بفشارید...")
-
-if __name__ == "__main__":
-    print("=" * 50)
+    print("=" * 60)
     print("🏨 سیستم مدیریت رزرواسیون هتل آراد")
-    print("=" * 50)
+    print("🔄 در حال راه‌اندازی...")
+    print("=" * 60)
     
-    # راه‌اندازی پایگاه داده
-    if init_database():
-        print("\n" + "=" * 50)
+    try:
+        # راه‌اندازی پایگاه داده
+        if not init_database():
+            print("❌ برنامه به دلیل خطا در پایگاه داده متوقف شد.")
+            input("برای خروج Enter را بفشارید...")
+            return 1
+        
+        print("\n" + "=" * 60)
         # تست ماندگاری داده‌ها
         test_database_persistence()
-        print("=" * 50)
-        main()
-    else:
-        print("❌ برنامه به دلیل خطا متوقف شد.")
+        print("=" * 60)
+        
+        # ایجاد برنامه Qt
+        app = QApplication(sys.argv)
+        app.setApplicationName("هتل آراد")
+        app.setApplicationVersion("1.0.0")
+        
+        # بارگذاری فونت‌ها
+        print("\n🔤 در حال بارگذاری فونت‌ها...")
+        font_loaded = load_fonts()
+        
+        # تنظیم فونت پیش‌فرض
+        if font_loaded:
+            font = QFont("B Titr", 10)
+        else:
+            font = QFont("Tahoma", 9)
+            print("⚠️ از فونت پیش‌فرض Tahoma استفاده می‌شود")
+        
+        app.setFont(font)
+        
+        # بارگذاری استایل‌ها
+        print("🎨 در حال بارگذاری استایل‌ها...")
+        load_styles(app)
+        
+        # ایجاد کنترلر برنامه
+        controller = ApplicationController(app)
+        
+        # نمایش preloader
+        print("\n🎬 نمایش preloader...")
+        controller.show_preloader()
+        
+        # اجرای برنامه
+        print("🔄 شروع event loop...")
+        exit_code = app.exec()
+        
+        print("👋 برنامه با موفقیت بسته شد")
+        return exit_code
+        
+    except Exception as e:
+        print(f"❌ خطای غیرمنتظره: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # نمایش پیام خطا
+        try:
+            app = QApplication(sys.argv)
+            QMessageBox.critical(
+                None, 
+                "خطای سیستمی", 
+                f"خطای غیرمنتظره در اجرای برنامه:\n{str(e)}\n\nلطفاً با پشتیبانی تماس بگیرید."
+            )
+        except:
+            pass
+            
         input("برای خروج Enter را بفشارید...")
+        return 1
+
+if __name__ == "__main__":
+    sys.exit(main())
