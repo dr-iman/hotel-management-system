@@ -1,24 +1,9 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Float, Text, JSON, LargeBinary
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Float, Text, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
-import os
 
 Base = declarative_base()
-
-class Agency(Base):
-    __tablename__ = 'agencies'
-    
-    id = Column(Integer, primary_key=True)
-    name = Column(String(100), nullable=False, unique=True)
-    contact_person = Column(String(100))
-    phone = Column(String(20))
-    address = Column(Text)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.now)
-    
-    def __repr__(self):
-        return f"<Agency({self.name})>"
 
 class Room(Base):
     __tablename__ = 'rooms'
@@ -43,8 +28,10 @@ class Guest(Base):
     id = Column(Integer, primary_key=True)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
+    email = Column(String(150))
+    phone = Column(String(20))
     id_number = Column(String(50))
-    nationality = Column(String(100), default="ایرانی")
+    nationality = Column(String(100))
     
     def __repr__(self):
         return f"<Guest({self.first_name} {self.last_name})>"
@@ -57,21 +44,16 @@ class Reservation(Base):
     guest_id = Column(Integer, nullable=False)
     check_in = Column(DateTime, nullable=False)
     check_out = Column(DateTime, nullable=False)
-    check_in_time = Column(String(10), default="14:00")
-    check_out_time = Column(String(10), default="12:00")
-    is_half_charge = Column(Boolean, default=False)
+    check_in_time = Column(String(10), default="14:00")  # زمان check-in
+    check_out_time = Column(String(10), default="12:00")  # زمان check-out
+    is_half_charge = Column(Boolean, default=False)  # حالت نیم شارژ
     status = Column(String(20), nullable=False)
     adults = Column(Integer, default=1)
     children = Column(Integer, default=0)
     total_amount = Column(Float, nullable=False)
-    paid_amount = Column(Float, default=0)  # مبلغ پیش پرداخت
+    paid_amount = Column(Float, default=0)
     package_type = Column(String(50), default="فقط اسکان")
     guest_type = Column(String(50), default="حضوری")
-    agency_id = Column(Integer)  # آیدی آژانس در صورت انتخاب
-    settlement_type = Column(String(50), default="تسویه با هتل")  # تسویه با آژانس، تسویه با هتل، تسویه شده
-    tracking_code = Column(String(100))  # کد پیگیری واریزی
-    receipt_file = Column(LargeBinary)  # فایل فیش پرداخت
-    receipt_filename = Column(String(255))  # نام فایل فیش
     companion_type = Column(String(50), default="بزرگسال")
     created_at = Column(DateTime, default=datetime.now)
     
@@ -82,11 +64,11 @@ class SystemLog(Base):
     __tablename__ = 'system_logs'
     
     id = Column(Integer, primary_key=True)
-    action = Column(String(50), nullable=False)
-    table_name = Column(String(50), nullable=False)
+    action = Column(String(50), nullable=False)  # create, update, delete
+    table_name = Column(String(50), nullable=False)  # reservations, guests, rooms
     record_id = Column(Integer, nullable=False)
-    old_data = Column(JSON)
-    new_data = Column(JSON)
+    old_data = Column(JSON)  # داده‌های قبلی
+    new_data = Column(JSON)  # داده‌های جدید
     changed_by = Column(String(100), default="سیستم")
     changed_at = Column(DateTime, default=datetime.now)
     description = Column(Text)

@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                             QTableWidget, QTableWidgetItem, QTabWidget,
-                            QHeaderView, QPushButton, QLineEdit, QComboBox)
+                            QHeaderView, QPushButton, QLineEdit, QComboBox, QScrollArea)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor, QBrush
 import sys
@@ -21,11 +21,19 @@ class GuestsTab(QWidget):
         self.load_guests_data()
     
     def setup_ui(self):
-        layout = QVBoxLayout()
+        # ایجاد scroll area اصلی
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        # ویجت اصلی
+        main_widget = QWidget()
+        layout = QVBoxLayout(main_widget)
         
         # عنوان
         title_label = QLabel("👥 مدیریت مهمانان")
-        title_label.setFont(QFont("Tahoma", 16, QFont.Weight.Bold))
+        title_label.setFont(QFont("B Titr", 16, QFont.Weight.Bold))
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet("padding: 20px; color: #2c3e50;")
         layout.addWidget(title_label)
@@ -64,24 +72,64 @@ class GuestsTab(QWidget):
         self.tabs.addTab(self.checked_out_tab, "مهمانان خروجی")
         
         layout.addWidget(self.tabs)
-        self.setLayout(layout)
+        layout.addStretch()
+        
+        # تنظیم ویجت اصلی برای scroll area
+        scroll_area.setWidget(main_widget)
+        
+        # تنظیم layout اصلی
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout.addWidget(scroll_area)
     
     def create_guests_table(self):
         container = QWidget()
         layout = QVBoxLayout(container)
         
-        self.table = QTableWidget()
-        self.table.setColumnCount(8)
+        table = QTableWidget()
+        table.setColumnCount(8)
         headers = ["نام", "نام خانوادگی", "تلفن", "ایمیل", "تاریخ آخرین رزرو", 
                   "اتاق فعلی", "وضعیت", "نوع مهمان"]
-        self.table.setHorizontalHeaderLabels(headers)
+        table.setHorizontalHeaderLabels(headers)
         
-        # تنظیمات جدول
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.table.setAlternatingRowColors(True)
-        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        # تنظیمات جدول با ارتفاع بیشتر
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        table.setAlternatingRowColors(True)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setMinimumHeight(400)  # ارتفاع بیشتر برای خوانایی بهتر
+        table.setStyleSheet("""
+            QTableWidget {
+                gridline-color: #dee2e6;
+                selection-background-color: #3498db;
+                border: 1px solid #dee2e6;
+                border-radius: 6px;
+                background-color: white;
+                alternate-background-color: #f8f9fa;
+            }
+            QTableWidget::item {
+                padding: 12px;  # padding بیشتر برای خوانایی بهتر
+                border-bottom: 1px solid #dee2e6;
+                font-family: "B Titr";
+                font-size: 11px;
+            }
+            QTableWidget::item:selected {
+                background-color: #3498db;
+                color: white;
+            }
+            QHeaderView::section {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #34495e, stop:1 #2c3e50);
+                color: white;
+                padding: 12px;
+                border: none;
+                border-right: 1px solid #5d6d7e;
+                font-family: "B Titr";
+                font-size: 11px;
+                font-weight: bold;
+            }
+        """)
         
-        layout.addWidget(self.table)
+        layout.addWidget(table)
         return container
     
     def load_guests_data(self):

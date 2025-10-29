@@ -33,7 +33,25 @@ class RoomCellWidget(QFrame):
         """هنگام کلیک روی سلول"""
         if event.button() == Qt.MouseButton.LeftButton:
             if self.room_number and self.jalali_date:
-                self.clicked.emit(self.room_number, self.jalali_date)
+                # تشخیص اینکه کلیک روی کدام نیمه سلول بوده است
+                click_x = event.pos().x()
+                cell_width = self.width()
+                
+                # اگر سلول رزرو دارد و از نوع start یا end است
+                if self.reservation_data and self.reservation_data.get('cell_type') in ['start', 'end']:
+                    # اگر کلیک روی نیمه خالی باشد (برای start نیمه راست، برای end نیمه چپ)
+                    if (self.reservation_data.get('cell_type') == 'start' and click_x > cell_width // 2) or \
+                       (self.reservation_data.get('cell_type') == 'end' and click_x <= cell_width // 2):
+                        # کلیک روی نیمه خالی - ثبت رزرو جدید
+                        print(f"کلیک روی نیمه خالی - ثبت رزرو جدید برای اتاق {self.room_number}")
+                        self.clicked.emit(self.room_number, self.jalali_date)
+                    else:
+                        # کلیک روی نیمه پر - ویرایش رزرو موجود
+                        print(f"کلیک روی نیمه پر - ویرایش رزرو موجود در اتاق {self.room_number}")
+                        self.clicked.emit(self.room_number, self.jalali_date)
+                else:
+                    # سلول کامل یا خالی - رفتار عادی
+                    self.clicked.emit(self.room_number, self.jalali_date)
         super().mousePressEvent(event)
         
     def paintEvent(self, event):
@@ -50,7 +68,7 @@ class RoomCellWidget(QFrame):
             height = self.height()
             
             if self.reservation_data:
-                # رسم سلول رزرو
+                # رسم سلول رزرو با حالت‌های مختلف
                 self.paint_reservation_cell(painter, width, height)
             else:
                 # رسم سلول خالی
@@ -62,16 +80,58 @@ class RoomCellWidget(QFrame):
             painter.end()
     
     def paint_reservation_cell(self, painter, width, height):
-        """رسم سلول رزرو"""
-        # رنگ زمینه بر اساس پکیج
+        """رسم سلول رزرو با حالت‌های مختلف برای Back-to-Back"""
+        if not self.reservation_data:
+            return
+            
+        cell_type = self.reservation_data.get('cell_type', 'full')
         color = self.get_reservation_color()
-        painter.fillRect(0, 0, width, height, QColor(color))
+        
+        # اصلاح: برای شروع رزرو نیمه چپ، برای پایان رزرو نیمه راست
+        if cell_type == 'start':
+            # نیمه چپ سلول (شروع رزرو)
+            rect_x = 0
+            rect_width = width // 2
+            text_area = (0, 0, width // 2, height)
+        elif cell_type == 'end':
+            # نیمه راست سلول (پایان رزرو)
+            rect_x = width // 2
+            rect_width = width // 2
+            text_area = (width // 2, 0, width // 2, height)
+        else:  # middle, full
+            # کل سلول
+            rect_x = 0
+            rect_width = width
+            text_area = (0, 0, width, height)
+        
+        # رسم پس‌زمینه رنگی
+        painter.fillRect(rect_x, 0, rect_width, height, QColor(color))
         
         # رسم border
         painter.setPen(QColor("#2c3e50"))
         painter.drawRect(0, 0, width - 1, height - 1)
         
-        # متن اطلاعات رزرو
+        # خط جداکننده برای حالت‌های start و end
+        if cell_type in ['start', 'end']:
+            painter.setPen(QColor("#34495e"))
+            painter.drawLine(width // 2, 0, width // 2, height)
+        
+        # نمایش اطلاعات فقط در حالت full یا middle
+        if cell_type in ['full', 'middle']:
+            self.draw_reservation_info(painter, text_area[0], text_area[1], text_area[2], text_area[3])
+        elif cell_type == 'start':
+            # در حالت start فلش به راست
+            painter.setPen(QColor("white"))
+            painter.setFont(QFont("Tahoma", 10, QFont.Weight.Bold))
+            painter.drawText(5, height // 2 + 5, "→")
+        elif cell_type == 'end':
+            # در حالت end فلش به چپ
+            painter.setPen(QColor("white"))
+            painter.setFont(QFont("Tahoma", 10, QFont.Weight.Bold))
+            painter.drawText(width - 15, height // 2 + 5, "←")
+    
+    def draw_reservation_info(self, painter, x, y, width, height):
+        """رسم اطلاعات رزرو در محدوده مشخص"""
         painter.setPen(QColor("white"))
         painter.setFont(QFont("Tahoma", 8, QFont.Weight.Bold))
         
@@ -83,20 +143,21 @@ class RoomCellWidget(QFrame):
         if len(guest_name) > 12:
             guest_name = guest_name[:12] + "..."
             
-        if len(package) > 10:
-            package = package[:10] + "..."
-        
         # نمایش اطلاعات در سه خط
         line_height = height // 3
         
-        # خط اول: نام مهمان
-        painter.drawText(5, line_height - 5, guest_name)
+        # خط اول: نام مهمان و تعداد روزها
+        name_text = f"{guest_name} | {nights} روز"
+        if len(name_text) > 16:
+            name_text = name_text[:16] + "..."
         
-        # خط دوم: تعداد شب‌ها
-        painter.drawText(5, line_height * 2 - 5, f"{nights} شب")
+        # خط دوم: نوع پکیج
+        package_text = package
+        if len(package_text) > 14:
+            package_text = package_text[:14] + "..."
         
-        # خط سوم: نوع پکیج
-        painter.drawText(5, line_height * 3 - 5, package)
+        painter.drawText(x + 5, y + line_height - 5, name_text)
+        painter.drawText(x + 5, y + line_height * 2 - 5, package_text)
     
     def paint_empty_cell(self, painter, width, height):
         """رسم سلول خالی"""
@@ -286,7 +347,7 @@ class RackWidget(QWidget):
         return layout
     
     def create_room_rows(self, main_layout):
-        """ایجاد ردیف‌های اتاق‌ها"""
+        """ایجاد ردیف‌های اتاق‌ها با پشتیبانی از Back-to-Back"""
         year = self.year_combo.currentData()
         month = self.month_combo.currentData()
         days = self.get_days_in_month(year, month)
@@ -360,35 +421,91 @@ class RackWidget(QWidget):
             return 30
     
     def get_cell_data(self, room_id, jalali_date):
-        """دریافت اطلاعات رزرو برای یک اتاق در تاریخ مشخص"""
+        """دریافت اطلاعات رزرو برای یک اتاق در تاریخ مشخص با پشتیبانی از Back-to-Back"""
         session = None
         try:
             gregorian_date = jalali_date.togregorian()
+            
+            # استفاده از reservation_manager برای ایجاد session
             session = self.reservation_manager.Session()
             
             from sqlalchemy import and_
-            reservation = session.query(Reservation, Guest).join(
+            
+            # پیدا کردن تمام رزروهای فعال برای این اتاق
+            reservations = session.query(Reservation, Guest).join(
                 Guest, and_(Reservation.guest_id == Guest.id)
             ).filter(
                 Reservation.room_id == room_id,
-                Reservation.check_in <= gregorian_date,
-                Reservation.check_out > gregorian_date,
                 Reservation.status.in_(['confirmed', 'checked_in'])
-            ).first()
+            ).order_by(Reservation.check_in).all()  # مرتب‌سازی بر اساس تاریخ ورود
             
-            if not reservation:
-                return None
+            # پیدا کردن رزروی که این تاریخ در بازه آن قرار دارد
+            for res, guest in reservations:
+                check_in_date = res.check_in.date()
+                check_out_date = res.check_out.date()
+                
+                if check_in_date <= gregorian_date < check_out_date:
+                    nights = (check_out_date - check_in_date).days
+                    
+                    # تعیین نوع سلول با منطق صحیح Back-to-Back
+                    day_position = (gregorian_date - check_in_date).days
+                    total_nights = nights
+                    
+                    # بررسی Back-to-Back احتمالی
+                    has_previous_reservation = False
+                    has_next_reservation = False
+                    
+                    # بررسی آیا رزرو قبلی در این تاریخ تمام می‌شود
+                    for prev_res, prev_guest in reservations:
+                        if prev_res.id != res.id and prev_res.check_out.date() == gregorian_date:
+                            has_previous_reservation = True
+                            break
+                    
+                    # بررسی آیا رزرو بعدی در این تاریخ شروع می‌شود
+                    for next_res, next_guest in reservations:
+                        if next_res.id != res.id and next_res.check_in.date() == gregorian_date:
+                            has_next_reservation = True
+                            break
+                    
+                    # منطق تعیین نوع سلول
+                    if day_position == 0:  # اولین روز رزرو
+                        if has_previous_reservation:
+                            # اگر رزرو قبلی در این تاریخ تمام می‌شود - حالت start (نیمه راست)
+                            cell_type = 'start'
+                        else:
+                            # روز اول و بدون رزرو قبلی - حالت full
+                            cell_type = 'full'
+                    elif gregorian_date == check_out_date - timedelta(days=1):  # آخرین روز رزرو
+                        if has_next_reservation:
+                            # اگر رزرو بعدی در این تاریخ شروع می‌شود - حالت end (نیمه چپ)
+                            cell_type = 'end'
+                        else:
+                            # روز آخر و بدون رزرو بعدی - حالت full
+                            cell_type = 'full'
+                    else:
+                        # روزهای میانی - حالت middle
+                        cell_type = 'middle'
+                    
+                    print(f"🔍 اتاق {room_id} - تاریخ {jalali_date}:")
+                    print(f"   رزرو: {check_in_date} تا {check_out_date}")
+                    print(f"   موقعیت روز: {day_position}")
+                    print(f"   نوع سلول: {cell_type}")
+                    print(f"   رزرو قبلی: {has_previous_reservation}")
+                    print(f"   رزرو بعدی: {has_next_reservation}")
+                    
+                    return {
+                        'guest_name': f"{guest.first_name} {guest.last_name}",
+                        'nights': nights,
+                        'package': res.package_type,
+                        'check_in': res.check_in,
+                        'check_out': res.check_out,
+                        'cell_type': cell_type,
+                        'day_position': day_position,
+                        'total_nights': nights,
+                        'reservation_id': res.id
+                    }
             
-            res, guest = reservation
-            nights = (res.check_out - res.check_in).days
-            
-            return {
-                'guest_name': f"{guest.first_name} {guest.last_name}",
-                'nights': nights,
-                'package': res.package_type,
-                'check_in': res.check_in,
-                'check_out': res.check_out
-            }
+            return None
             
         except Exception as e:
             print(f"خطا در دریافت داده سلول: {e}")

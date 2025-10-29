@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                             QGridLayout, QFrame, QTableWidget, QTableWidgetItem,
-                            QHeaderView)
+                            QHeaderView, QScrollArea)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor, QBrush
 import sys
@@ -23,11 +23,19 @@ class ReportsTab(QWidget):
         self.load_reports_data()
     
     def setup_ui(self):
-        layout = QVBoxLayout()
+        # ایجاد scroll area اصلی
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        # ویجت اصلی
+        main_widget = QWidget()
+        layout = QVBoxLayout(main_widget)
         
         # عنوان
         title_label = QLabel("📊 گزارشات و آمار هتل")
-        title_label.setFont(QFont("Tahoma", 16, QFont.Weight.Bold))
+        title_label.setFont(QFont("B Titr", 16, QFont.Weight.Bold))
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet("padding: 20px; color: #2c3e50;")
         layout.addWidget(title_label)
@@ -58,7 +66,7 @@ class ReportsTab(QWidget):
         
         # جدول آمار ماهانه
         table_label = QLabel("📈 آمار رزروهای ماهانه")
-        table_label.setFont(QFont("Tahoma", 14, QFont.Weight.Bold))
+        table_label.setFont(QFont("B Titr", 14, QFont.Weight.Bold))
         table_label.setStyleSheet("padding: 15px; color: #2c3e50;")
         layout.addWidget(table_label)
         
@@ -66,11 +74,12 @@ class ReportsTab(QWidget):
         self.monthly_table.setColumnCount(4)
         self.monthly_table.setHorizontalHeaderLabels(["ماه", "تعداد رزرو", "درآمد", "نرخ اشغال"])
         self.monthly_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.monthly_table.setMinimumHeight(200)
         layout.addWidget(self.monthly_table)
         
         # آمار انواع پکیج
         package_label = QLabel("📦 آمار انواع پکیج")
-        package_label.setFont(QFont("Tahoma", 14, QFont.Weight.Bold))
+        package_label.setFont(QFont("B Titr", 14, QFont.Weight.Bold))
         package_label.setStyleSheet("padding: 15px; color: #2c3e50;")
         layout.addWidget(package_label)
         
@@ -78,9 +87,18 @@ class ReportsTab(QWidget):
         self.package_table.setColumnCount(3)
         self.package_table.setHorizontalHeaderLabels(["نوع پکیج", "تعداد رزرو", "درآمد"])
         self.package_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.package_table.setMinimumHeight(150)
         layout.addWidget(self.package_table)
         
-        self.setLayout(layout)
+        layout.addStretch()
+        
+        # تنظیم ویجت اصلی برای scroll area
+        scroll_area.setWidget(main_widget)
+        
+        # تنظیم layout اصلی
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout.addWidget(scroll_area)
     
     def create_stat_card(self, title, value, color):
         card = QFrame()
